@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BarMatch Pro 條碼比對器 (v0.2 iOS修復版)</title>
+    <title>BarMatch Pro 條碼比對器 (v0.3 終極版)</title>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         :root {
@@ -43,19 +43,18 @@
         
         #status-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.6); display: flex; flex-direction: column;
+            background-color: rgba(0,0,0,0.8); display: flex; flex-direction: column;
             justify-content: center; align-items: center; transition: background-color 0.2s ease;
             z-index: 10;
         }
         #status-icon { font-size: 80px; margin-bottom: 20px; }
         #status-text { font-size: 20px; font-weight: bold; text-align: center; padding: 0 20px; }
         
-        /* v0.2 新增：手動啟動按鈕 */
         #init-btn {
             margin-top: 30px; background-color: var(--primary); color: white;
             border: none; padding: 15px 40px; border-radius: 30px;
             font-size: 20px; font-weight: bold; box-shadow: 0 4px 15px rgba(52, 152, 219, 0.5);
-            cursor: pointer; pointer-events: auto; /* 確保按鈕可以被點擊 */
+            cursor: pointer; pointer-events: auto;
             animation: pulse 2s infinite;
         }
         @keyframes pulse {
@@ -70,10 +69,9 @@
             border-radius: 35px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.4); cursor: pointer;
         }
         
-        .status-ok #status-overlay { background-color: rgba(46, 204, 113, 0.85); }
-        .status-ng #status-overlay { background-color: rgba(231, 76, 60, 0.85); }
+        .status-ok #status-overlay { background-color: rgba(46, 204, 113, 0.9); }
+        .status-ng #status-overlay { background-color: rgba(231, 76, 60, 0.9); }
         .hidden { display: none !important; }
-        .pointer-none { pointer-events: none; }
     </style>
 </head>
 <body>
@@ -107,12 +105,10 @@
     let html5QrCode = null;
     let isComparing = false; 
 
-    // v0.2 新增：使用者主動點擊觸發 (破解 iOS 限制)
     function firstTimeInit() {
         document.getElementById('init-btn').classList.add('hidden');
-        document.getElementById('status-icon').innerText = "🔍";
-        document.getElementById('status-text').innerText = "請先掃描「基準條碼」貼紙";
-        document.getElementById('status-overlay').classList.add('pointer-none'); // 讓掃描框可以透視
+        // v0.3 重點：相機啟動時，直接把整個遮罩隱藏，畫面完全乾淨！
+        document.getElementById('status-overlay').classList.add('hidden');
         initScanner();
     }
 
@@ -120,7 +116,8 @@
         if(!html5QrCode) {
             html5QrCode = new Html5Qrcode("reader");
         }
-        const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+        // v0.3 重點：把掃描框變成 250x250 的大正方形，QR Code 絕對掃得到
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
         
         html5QrCode.start(
             { facingMode: "environment" }, 
@@ -128,14 +125,13 @@
             onScanSuccess
         ).catch((err) => {
             console.error(err);
-            alert("相機啟動失敗！請確認 iOS 設定中 Safari 的相機權限已開啟。");
+            alert("相機啟動失敗！請重新整理網頁。");
             document.getElementById('init-btn').classList.remove('hidden');
-            document.getElementById('status-overlay').classList.remove('pointer-none');
+            document.getElementById('status-overlay').classList.remove('hidden');
         });
     }
 
     function onScanSuccess(decodedText, decodedResult) {
-        // 防止重複觸發
         if(html5QrCode.isPaused) return; 
 
         const appDiv = document.getElementById('app');
@@ -149,12 +145,13 @@
             document.getElementById('reset-btn').classList.remove('hidden');
             document.getElementById('action-container').classList.remove('hidden');
             
-            overlay.classList.remove('pointer-none');
+            // 掃描成功，把遮罩叫出來顯示結果
+            overlay.classList.remove('hidden');
             appDiv.className = "status-ok";
             overlayIcon.innerText = "⭕";
             overlayText.innerText = "基準設定成功！";
             
-            html5QrCode.pause(); // 暫停相機省電
+            html5QrCode.pause(); 
             
             setTimeout(() => {
                 appDiv.className = "";
@@ -163,8 +160,9 @@
             }, 1000);
         
         } else if (isComparing) {
-            html5QrCode.pause(); // 掃到就先暫停，避免畫面狂閃
-            overlay.classList.remove('pointer-none');
+            html5QrCode.pause(); 
+            // 掃描成功，把遮罩叫出來顯示結果
+            overlay.classList.remove('hidden');
             
             if (decodedText === baseBarcode) {
                 appDiv.className = "status-ok";
@@ -186,12 +184,10 @@
         document.getElementById('next-btn').classList.add('hidden');
         document.getElementById('app').className = ""; 
         
-        const overlay = document.getElementById('status-overlay');
-        overlay.classList.add('pointer-none'); // 畫面變透明
-        document.getElementById('status-icon').innerText = "";
-        document.getElementById('status-text').innerText = "";
+        // 進入比對模式時，再次把遮罩藏起來，視野全開
+        document.getElementById('status-overlay').classList.add('hidden');
         
-        if(html5QrCode.getState() === 2) { // 如果是 paused 狀態
+        if(html5QrCode.getState() === 2) { 
             html5QrCode.resume();
         } else {
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
@@ -214,6 +210,7 @@
         document.getElementById('next-btn').classList.add('hidden');
         document.getElementById('compare-btn').classList.remove('hidden'); 
         
+        document.getElementById('status-overlay').classList.remove('hidden');
         document.getElementById('status-icon').innerText = "✅";
         document.getElementById('status-text').innerText = "請點擊下方按鈕開始交叉比對";
     }
@@ -229,9 +226,11 @@
         document.getElementById('next-btn').classList.add('hidden');
         document.getElementById('compare-btn').classList.remove('hidden');
         
-        document.getElementById('status-overlay').classList.remove('pointer-none');
-        document.getElementById('status-icon').innerText = "🔍";
-        document.getElementById('status-text').innerText = "請先掃描「基準條碼」貼紙";
+        // 重置時顯示開啟按鈕
+        document.getElementById('status-overlay').classList.remove('hidden');
+        document.getElementById('init-btn').classList.remove('hidden');
+        document.getElementById('status-icon').innerText = "📸";
+        document.getElementById('status-text').innerText = "準備就緒，請點擊下方按鈕啟動相機";
         
         if(html5QrCode && html5QrCode.getState() === 2) {
             html5QrCode.resume();
