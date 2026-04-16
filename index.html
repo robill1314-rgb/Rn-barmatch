@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BarMatch Pro 條碼比對器 (v0.6 強制高清版)</title>
+    <title>BarMatch Pro 條碼比對器 (v0.7 穩定平衡版)</title>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         :root {
@@ -38,16 +38,12 @@
         #reader video { object-fit: cover !important; width: 100% !important; height: 100% !important; }
         #reader__dashboard { display: none !important; }
         
-        /* 視覺準心 (純輔助，不影響解析) */
+        /* 視覺準心 */
         .focus-box {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 80%; height: 150px; border: 2px solid rgba(255,255,255,0.4); border-radius: 10px;
             pointer-events: none; z-index: 5;
-            box-shadow: 0 0 0 4000px rgba(0,0,0,0.4); /* 周圍變暗，凸顯中間 */
-        }
-        .focus-line {
-            position: absolute; top: 50%; left: 10%; right: 10%; height: 2px;
-            background-color: rgba(255,0,0,0.6); transform: translateY(-50%); pointer-events: none; z-index: 6;
+            box-shadow: 0 0 0 4000px rgba(0,0,0,0.5); 
         }
         
         #status-overlay {
@@ -90,11 +86,10 @@
     <div id="scanner-container">
         <div id="reader"></div>
         <div class="focus-box" id="focus-box" style="display:none;"></div>
-        <div class="focus-line" id="focus-line" style="display:none;"></div>
         
         <div id="status-overlay">
             <div id="status-icon">📸</div>
-            <div id="status-text">強制 1080p 高清引擎已載入<br>請點擊下方按鈕</div>
+            <div id="status-text">系統已重置為穩定模式<br>請點擊下方按鈕啟動相機</div>
             <button id="init-btn" onclick="firstTimeInit()">👉 開啟相機 👈</button>
         </div>
     </div>
@@ -114,7 +109,6 @@
         document.getElementById('init-btn').classList.add('hidden');
         document.getElementById('status-overlay').classList.add('hidden');
         document.getElementById('focus-box').style.display = 'block';
-        document.getElementById('focus-line').style.display = 'block';
         initScanner();
     }
 
@@ -123,15 +117,9 @@
             html5QrCode = new Html5Qrcode("reader");
         }
         
-        // v0.6 殺手鐧：取消 qrbox 裁切，並強制要求相機提供 1080p (1920x1080) 的高畫質
-        const cameraConfig = { 
-            facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-        };
-
+        // v0.7 穩定版：拿掉 1080p 限制，不挑戰蘋果底線。
         const config = { 
-            fps: 20, 
+            fps: 15, 
             formatsToSupport: [
                 Html5QrcodeSupportedFormats.QR_CODE,
                 Html5QrcodeSupportedFormats.CODE_128,
@@ -139,9 +127,15 @@
             ]
         }; 
         
-        html5QrCode.start(cameraConfig, config, onScanSuccess).catch((err) => {
+        html5QrCode.start(
+            { facingMode: "environment" }, // 安全標準指令
+            config,
+            onScanSuccess
+        ).catch((err) => {
             console.error(err);
-            alert("相機啟動失敗或不支援高畫質！");
+            alert("錯誤: " + err.message + "\n請完全關閉 Safari 後重試！");
+            document.getElementById('init-btn').classList.remove('hidden');
+            document.getElementById('status-overlay').classList.remove('hidden');
         });
     }
 
@@ -161,7 +155,6 @@
             
             overlay.classList.remove('hidden');
             document.getElementById('focus-box').style.display = 'none';
-            document.getElementById('focus-line').style.display = 'none';
 
             appDiv.className = "status-ok";
             overlayIcon.innerText = "⭕";
@@ -179,7 +172,6 @@
             html5QrCode.pause(); 
             overlay.classList.remove('hidden');
             document.getElementById('focus-box').style.display = 'none';
-            document.getElementById('focus-line').style.display = 'none';
             
             if (decodedText === baseBarcode) {
                 appDiv.className = "status-ok";
@@ -203,15 +195,13 @@
         document.getElementById('status-overlay').classList.add('hidden');
         
         document.getElementById('focus-box').style.display = 'block';
-        document.getElementById('focus-box').style.height = '280px'; // 掃 QR code 框變大
-        document.getElementById('focus-line').style.display = 'none';
+        document.getElementById('focus-box').style.height = '280px'; 
 
         if(html5QrCode.getState() === 2) { 
             html5QrCode.resume();
         } else {
-            const cameraConfig = { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } };
-            const config = { fps: 20, formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128 ] };
-            html5QrCode.start(cameraConfig, config, onScanSuccess);
+            const config = { fps: 15, formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128 ] };
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
         }
     }
 
@@ -249,10 +239,9 @@
         document.getElementById('status-overlay').classList.remove('hidden');
         document.getElementById('init-btn').classList.remove('hidden');
         document.getElementById('status-icon').innerText = "📸";
-        document.getElementById('status-text').innerText = "強制 1080p 高清引擎已載入<br>請點擊下方按鈕";
+        document.getElementById('status-text').innerText = "系統已重置為穩定模式<br>請點擊下方按鈕啟動相機";
         
         document.getElementById('focus-box').style.display = 'none';
-        document.getElementById('focus-line').style.display = 'none';
         document.getElementById('focus-box').style.height = '150px';
         
         if(html5QrCode && html5QrCode.getState() === 2) {
