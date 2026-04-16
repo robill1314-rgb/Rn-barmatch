@@ -3,65 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BarMatch Pro 條碼比對器 (v0.3 終極版)</title>
+    <title>BarMatch Pro 條碼比對器 (v0.4 無框狙擊版)</title>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         :root {
-            --bg-dark: #121212;
-            --card-dark: #1e1e1e;
-            --text-light: #e0e0e0;
-            --primary: #3498db;
-            --success: #2ecc71;
-            --error: #e74c3c;
+            --bg-dark: #121212; --card-dark: #1e1e1e; --text-light: #e0e0e0;
+            --primary: #3498db; --success: #2ecc71; --error: #e74c3c;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0; padding: 0;
-            background-color: var(--bg-dark); color: var(--text-light);
-            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0; padding: 0; background-color: var(--bg-dark); color: var(--text-light); overflow: hidden;
         }
         #app { display: flex; flex-direction: column; height: 100vh; }
         #base-card {
             background-color: var(--card-dark); padding: 15px; margin: 10px;
             border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            display: flex; align-items: center; justify-content: space-between;
+            display: flex; align-items: center; justify-content: space-between; z-index: 30;
         }
         #base-info { display: flex; flex-direction: column; }
         #base-label { font-size: 14px; color: #aaaaaa; margin-bottom: 4px; }
         #base-value { font-size: 20px; font-weight: bold; color: var(--primary); word-break: break-all; }
         #reset-btn {
-            background-color: var(--bg-dark); color: var(--text-light);
-            border: 1px solid #444; padding: 10px 18px; border-radius: 8px; font-size: 14px; cursor: pointer;
+            background-color: var(--bg-dark); color: var(--text-light); border: 1px solid #444;
+            padding: 10px 18px; border-radius: 8px; font-size: 14px; cursor: pointer;
         }
         #scanner-container {
-            flex-grow: 1; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; position: relative;
+            flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative;
         }
         #reader { width: 100%; height: 100%; border: none !important; }
-        #reader__scan_region { border: none !important; }
-        #reader__dashboard { display: none !important; }
+        #reader video { object-fit: cover !important; } /* 確保影片滿版 */
         
         #status-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.8); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; transition: background-color 0.2s ease;
-            z-index: 10;
+            background-color: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; transition: background-color 0.2s ease; z-index: 10;
         }
         #status-icon { font-size: 80px; margin-bottom: 20px; }
-        #status-text { font-size: 20px; font-weight: bold; text-align: center; padding: 0 20px; }
+        #status-text { font-size: 20px; font-weight: bold; text-align: center; padding: 0 20px; line-height: 1.5; }
         
         #init-btn {
-            margin-top: 30px; background-color: var(--primary); color: white;
-            border: none; padding: 15px 40px; border-radius: 30px;
-            font-size: 20px; font-weight: bold; box-shadow: 0 4px 15px rgba(52, 152, 219, 0.5);
-            cursor: pointer; pointer-events: auto;
-            animation: pulse 2s infinite;
+            margin-top: 30px; background-color: var(--primary); color: white; border: none; padding: 15px 40px;
+            border-radius: 30px; font-size: 20px; font-weight: bold; box-shadow: 0 4px 15px rgba(52, 152, 219, 0.5);
+            cursor: pointer; pointer-events: auto; animation: pulse 2s infinite;
         }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
         #action-container { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: center; z-index: 20; }
         .action-btn {
@@ -69,9 +54,15 @@
             border-radius: 35px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.4); cursor: pointer;
         }
         
-        .status-ok #status-overlay { background-color: rgba(46, 204, 113, 0.9); }
-        .status-ng #status-overlay { background-color: rgba(231, 76, 60, 0.9); }
+        .status-ok #status-overlay { background-color: rgba(46, 204, 113, 0.95); }
+        .status-ng #status-overlay { background-color: rgba(231, 76, 60, 0.95); }
         .hidden { display: none !important; }
+        
+        /* 準心提示 (純視覺，不影響掃描範圍) */
+        .crosshair {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 80%; height: 2px; background-color: rgba(255,0,0,0.5); z-index: 5; pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -87,9 +78,11 @@
 
     <div id="scanner-container">
         <div id="reader"></div>
+        <div class="crosshair" id="crosshair" style="display:none;"></div>
+        
         <div id="status-overlay">
             <div id="status-icon">📸</div>
-            <div id="status-text">準備就緒，請點擊下方按鈕啟動相機</div>
+            <div id="status-text">準備就緒<br>請點擊下方按鈕啟動相機</div>
             <button id="init-btn" onclick="firstTimeInit()">👉 點此開啟相機 👈</button>
         </div>
     </div>
@@ -107,8 +100,8 @@
 
     function firstTimeInit() {
         document.getElementById('init-btn').classList.add('hidden');
-        // v0.3 重點：相機啟動時，直接把整個遮罩隱藏，畫面完全乾淨！
         document.getElementById('status-overlay').classList.add('hidden');
+        document.getElementById('crosshair').style.display = 'block'; // 顯示輔助紅線
         initScanner();
     }
 
@@ -116,8 +109,9 @@
         if(!html5QrCode) {
             html5QrCode = new Html5Qrcode("reader");
         }
-        // v0.3 重點：把掃描框變成 250x250 的大正方形，QR Code 絕對掃得到
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        // v0.4 重點：移除 qrbox 裁切！全螢幕都是掃描區，解決靜區被切掉的問題！
+        // 提升 fps 到 20，讓抓取速度更快
+        const config = { fps: 20 }; 
         
         html5QrCode.start(
             { facingMode: "environment" }, 
@@ -128,6 +122,7 @@
             alert("相機啟動失敗！請重新整理網頁。");
             document.getElementById('init-btn').classList.remove('hidden');
             document.getElementById('status-overlay').classList.remove('hidden');
+            document.getElementById('crosshair').style.display = 'none';
         });
     }
 
@@ -145,8 +140,8 @@
             document.getElementById('reset-btn').classList.remove('hidden');
             document.getElementById('action-container').classList.remove('hidden');
             
-            // 掃描成功，把遮罩叫出來顯示結果
             overlay.classList.remove('hidden');
+            document.getElementById('crosshair').style.display = 'none';
             appDiv.className = "status-ok";
             overlayIcon.innerText = "⭕";
             overlayText.innerText = "基準設定成功！";
@@ -161,8 +156,8 @@
         
         } else if (isComparing) {
             html5QrCode.pause(); 
-            // 掃描成功，把遮罩叫出來顯示結果
             overlay.classList.remove('hidden');
+            document.getElementById('crosshair').style.display = 'none';
             
             if (decodedText === baseBarcode) {
                 appDiv.className = "status-ok";
@@ -184,13 +179,13 @@
         document.getElementById('next-btn').classList.add('hidden');
         document.getElementById('app').className = ""; 
         
-        // 進入比對模式時，再次把遮罩藏起來，視野全開
         document.getElementById('status-overlay').classList.add('hidden');
+        document.getElementById('crosshair').style.display = 'block';
         
         if(html5QrCode.getState() === 2) { 
             html5QrCode.resume();
         } else {
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            const config = { fps: 20 };
             html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
         }
     }
@@ -226,11 +221,11 @@
         document.getElementById('next-btn').classList.add('hidden');
         document.getElementById('compare-btn').classList.remove('hidden');
         
-        // 重置時顯示開啟按鈕
         document.getElementById('status-overlay').classList.remove('hidden');
         document.getElementById('init-btn').classList.remove('hidden');
         document.getElementById('status-icon').innerText = "📸";
-        document.getElementById('status-text').innerText = "準備就緒，請點擊下方按鈕啟動相機";
+        document.getElementById('status-text').innerText = "準備就緒<br>請點擊下方按鈕啟動相機";
+        document.getElementById('crosshair').style.display = 'none';
         
         if(html5QrCode && html5QrCode.getState() === 2) {
             html5QrCode.resume();
